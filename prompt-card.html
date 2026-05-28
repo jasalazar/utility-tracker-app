@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prompt Card — Utility Tracker</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── Page shell — screenshot this at 800 px wide ── */
+    body {
+      width: 800px;
+      background: #080c14;
+      font-family: 'Inter', -apple-system, 'Segoe UI', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Dot-grid background ── */
+    .canvas {
+      width: 800px;
+      min-height: 900px;
+      background-color: #080c14;
+      background-image:
+        radial-gradient(circle at 20% 10%, rgba(99,102,241,.18) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(249,115,22,.12) 0%, transparent 50%),
+        radial-gradient(#1e2640 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 28px 28px;
+      padding: 52px 52px 48px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .logo-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 42px;
+      height: 42px;
+      background: linear-gradient(135deg, #6366f1, #f97316);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+
+    .logo-text {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .logo-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: #f1f5f9;
+      letter-spacing: -.3px;
+    }
+
+    .logo-sub {
+      font-size: 12px;
+      color: #64748b;
+      font-weight: 500;
+    }
+
+    .badge {
+      background: rgba(99,102,241,.15);
+      border: 1px solid rgba(99,102,241,.35);
+      color: #a5b4fc;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+      padding: 5px 12px;
+      border-radius: 99px;
+    }
+
+    /* ── Tagline ── */
+    .tagline {
+      text-align: center;
+    }
+
+    .tagline h1 {
+      font-size: 26px;
+      font-weight: 800;
+      color: #f1f5f9;
+      letter-spacing: -.5px;
+      line-height: 1.25;
+      margin-bottom: 6px;
+    }
+
+    .tagline h1 span {
+      background: linear-gradient(90deg, #6366f1, #f97316);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .tagline p {
+      font-size: 14px;
+      color: #64748b;
+      font-weight: 500;
+    }
+
+    /* ── Divider ── */
+    .divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, #1e2a45, transparent);
+    }
+
+    /* ── Prompt card ── */
+    .prompt-card {
+      background: #0f1623;
+      border: 1px solid #1e2a45;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 0 0 1px rgba(99,102,241,.08), 0 24px 48px rgba(0,0,0,.5);
+    }
+
+    /* Terminal title bar */
+    .card-topbar {
+      background: #141d2e;
+      border-bottom: 1px solid #1e2a45;
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+    }
+    .dot-r { background: #ff5f57; }
+    .dot-y { background: #febc2e; }
+    .dot-g { background: #27c840; }
+
+    .card-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: #475569;
+      font-weight: 500;
+      margin-left: 4px;
+    }
+
+    /* Role pill */
+    .role-pill {
+      margin: 20px 24px 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(249,115,22,.12);
+      border: 1px solid rgba(249,115,22,.3);
+      border-radius: 8px;
+      padding: 7px 14px;
+    }
+
+    .role-pill-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #f97316;
+      box-shadow: 0 0 6px #f97316;
+      flex-shrink: 0;
+    }
+
+    .role-pill-text {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: #fdba74;
+      font-weight: 500;
+    }
+
+    /* Prompt body */
+    .prompt-body {
+      padding: 18px 24px 26px;
+      color: #cbd5e1;
+      font-size: 14.5px;
+      line-height: 1.75;
+      font-weight: 400;
+    }
+
+    .prompt-body p + p { margin-top: 14px; }
+
+    /* Highlighted keywords */
+    .hl-blue  { color: #7dd3fc; font-weight: 500; }
+    .hl-green { color: #86efac; font-weight: 500; }
+    .hl-amber { color: #fde68a; font-weight: 500; }
+    .hl-purple{ color: #c4b5fd; font-weight: 500; }
+
+    /* ── Tech stack pills ── */
+    .stack-section {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .stack-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: #334155;
+    }
+
+    .stack-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #0f1623;
+      border: 1px solid #1e2a45;
+      border-radius: 8px;
+      padding: 6px 13px;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: #94a3b8;
+      white-space: nowrap;
+    }
+
+    .pill-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* ── Footer ── */
+    .footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid #111827;
+      padding-top: 24px;
+    }
+
+    .footer-left {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .footer-headline {
+      font-size: 18px;
+      font-weight: 800;
+      color: #f1f5f9;
+      letter-spacing: -.3px;
+    }
+
+    .footer-sub {
+      font-size: 12px;
+      color: #475569;
+      font-weight: 500;
+    }
+
+    .footer-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+    }
+
+    .powered-label {
+      font-size: 11px;
+      color: #334155;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+
+    .powered-brand {
+      font-size: 13px;
+      font-weight: 700;
+      background: linear-gradient(90deg, #6366f1, #f97316);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+  </style>
+</head>
+<body>
+<div class="canvas">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo-group">
+      <div class="logo-icon">⚡</div>
+      <div class="logo-text">
+        <span class="logo-title">Utility Tracker</span>
+        <span class="logo-sub">Agentic · Full-Stack · Open Source</span>
+      </div>
+    </div>
+    <div class="badge">Prompt Card</div>
+  </div>
+
+  <!-- Tagline -->
+  <div class="tagline">
+    <h1>One prompt.<br><span>An entire production app.</span></h1>
+    <p>The exact prompt used to architect this project — copy it and build your own.</p>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Prompt card -->
+  <div class="prompt-card">
+    <div class="card-topbar">
+      <div class="dots">
+        <div class="dot dot-r"></div>
+        <div class="dot dot-y"></div>
+        <div class="dot dot-g"></div>
+      </div>
+      <span class="card-label">claude-sonnet-4-6 · Initial architecture prompt</span>
+    </div>
+
+    <div class="role-pill">
+      <div class="role-pill-dot"></div>
+      <span class="role-pill-text">system: "Take the role of a software architect."</span>
+    </div>
+
+    <div class="prompt-body">
+      <p>
+        Please help me design an
+        <span class="hl-blue">agentic app</span>
+        to track the utility payments in my household.
+        This app will
+        <span class="hl-green">monitor in real time my Gmail account</span>,
+        and every time I receive an email about my services it will read the email,
+        record which service the email refers to, when the payment is due, and the
+        amount to be paid.
+      </p>
+      <p>
+        It must have the ability to send
+        <span class="hl-amber">configurable notifications</span>
+        to remind me about payments — whether via email, a notification on my OS,
+        or a popup on screen.
+      </p>
+      <p>
+        It must show a
+        <span class="hl-blue">simple UI on a single web page</span>
+        and must account for
+        <span class="hl-amber">user authentication</span>.
+      </p>
+      <p>
+        It will use
+        <span class="hl-purple">LangChain and LangGraph</span> as orchestrator,
+        <span class="hl-green">Redis</span> as the underlying database,
+        <span class="hl-purple">LangSmith</span> for observability and monitoring,
+        and
+        <span class="hl-amber">Anthropic's API and its LLMs</span>
+        to power the app.
+      </p>
+      <p>
+        Please propose a suitable and simple architecture, explain why, sketch the
+        proposal —
+        <span class="hl-blue">but do not create it until I approve it</span>.
+        Also sketch a data flow based on my explanation.
+      </p>
+    </div>
+  </div>
+
+  <!-- Tech stack -->
+  <div class="stack-section">
+    <span class="stack-label">What got built from this prompt</span>
+    <div class="stack-pills">
+      <div class="pill"><div class="pill-dot" style="background:#f97316;"></div>Claude (Anthropic API)</div>
+      <div class="pill"><div class="pill-dot" style="background:#6366f1;"></div>LangGraph orchestration</div>
+      <div class="pill"><div class="pill-dot" style="background:#6366f1;"></div>LangSmith tracing</div>
+      <div class="pill"><div class="pill-dot" style="background:#22d3ee;"></div>FastAPI + React SPA</div>
+      <div class="pill"><div class="pill-dot" style="background:#ef4444;"></div>Redis (Docker container)</div>
+      <div class="pill"><div class="pill-dot" style="background:#22d3ee;"></div>Google Pub/Sub + Gmail API</div>
+      <div class="pill"><div class="pill-dot" style="background:#a3e635;"></div>APScheduler reminders</div>
+      <div class="pill"><div class="pill-dot" style="background:#f8fafc;"></div>macOS native notifications</div>
+      <div class="pill"><div class="pill-dot" style="background:#a78bfa;"></div>Google OAuth 2.0 (PKCE)</div>
+      <div class="pill"><div class="pill-dot" style="background:#fbbf24;"></div>WebSocket real-time UI</div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="footer-left">
+      <span class="footer-headline">One conversation. Full stack.</span>
+      <span class="footer-sub">Architecture · Backend · Frontend · Infra · Agents</span>
+    </div>
+    <div class="footer-right">
+      <span class="powered-label">Powered by</span>
+      <span class="powered-brand">Claude · LangGraph · LangSmith</span>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

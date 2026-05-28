@@ -1,0 +1,265 @@
+# =============================================================================
+# UTILITY TRACKER APP — .gitignore
+# =============================================================================
+
+# =============================================================================
+# SECRETS & CREDENTIALS  (never commit these)
+# =============================================================================
+
+# Application env files
+.env
+.env.local
+.env.production
+.env.staging
+.env.*.local
+*.env
+.env.example
+
+# Google OAuth / Gmail API
+client_secrets.json
+client_secret_*.json
+credentials.json
+token.json
+token.pickle
+service_account.json
+gcp_credentials.json
+
+# Anthropic API keys (in case someone stores them in a file)
+anthropic_key.txt
+anthropic_api_key.txt
+
+# LangSmith
+langsmith_key.txt
+
+# Web Push / VAPID keys
+vapid_private.key
+vapid_private.pem
+vapid_keys.json
+
+# Generic secrets / certificates
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+secrets/
+secrets.json
+secrets.yaml
+secrets.toml
+
+# =============================================================================
+# PYTHON
+# =============================================================================
+
+# Byte-compiled / optimised / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# Distribution / packaging
+.Python
+build/
+dist/
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+.python-version
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage
+.pytest_cache/
+.cache/
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+
+# Type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+pyrightconfig.json
+
+# Jupyter notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# Poetry
+poetry.lock
+
+# uv
+uv.lock
+.uv/
+
+# =============================================================================
+# FRONTEND (Node / React / Vite)
+# =============================================================================
+
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.vite/
+frontend/.cache/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+*.log
+logs/
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Package manager locks (keep only one; remove the ones you don't use)
+# Uncomment the lock file your project does NOT use:
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# =============================================================================
+# REDIS
+# =============================================================================
+
+# Redis dump and persistence files
+dump.rdb
+*.rdb
+appendonly.aof
+redis.conf.local
+
+# =============================================================================
+# DOCKER
+# =============================================================================
+
+# Local docker-compose overrides often contain env-specific secrets
+docker-compose.override.yml
+docker-compose.local.yml
+.docker/
+
+# =============================================================================
+# MACOS NOTIFIER DAEMON
+# =============================================================================
+
+# Generated LaunchAgent plist files (contain local machine paths)
+notifier/*.plist
+notifier/__pycache__/
+
+# =============================================================================
+# LANGSMITH / LANGCHAIN
+# =============================================================================
+
+# Local LangSmith traces (if ever written to disk for debugging)
+langsmith_traces/
+.langsmith/
+
+# =============================================================================
+# MACOS SYSTEM FILES
+# =============================================================================
+
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.AppleDouble
+.LSOverride
+Icon?
+
+# macOS Finder
+.fseventsd
+.TemporaryItems
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# =============================================================================
+# EDITORS & IDEs
+# =============================================================================
+
+# VSCode
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json.example
+
+# JetBrains (PyCharm, WebStorm, etc.)
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Vim / Neovim
+*.swp
+*.swo
+*.swn
+*~
+.netrwhist
+
+# Emacs
+\#*\#
+.#*
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# =============================================================================
+# GENERAL
+# =============================================================================
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*.orig
+
+# OS-generated thumbnails
+Thumbs.db
+
+# Crash reports
+crash.log
+crash-*.log
