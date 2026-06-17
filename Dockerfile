@@ -11,6 +11,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY pyproject.toml .
 RUN pip install --no-cache-dir -e .
 
+# Extra MCP-server dependencies (fastmcp, mcp[cli]) live in requirements.txt
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
 # Copy application code
 COPY backend/ ./backend/
 

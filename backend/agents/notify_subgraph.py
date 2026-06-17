@@ -57,8 +57,9 @@ async def dispatch(state: NotifyState) -> dict:
     channels = state.get("channels", [])
     tasks = {}
 
-    if "email" in channels:
-        tasks["email"] = _send_email(state)
+    # Email channel is currently DISABLED (the app no longer requests the
+    # gmail.send scope). _send_email is retained below, unwired, for future
+    # re-enablement via a system mailer.
     if "browser_push" in channels:
         tasks["browser_push"] = _send_browser_push(state)
     if "ui_popup" in channels:
@@ -88,6 +89,11 @@ async def dispatch(state: NotifyState) -> dict:
 # ---------------------------------------------------------------------------
 
 async def _send_email(state: NotifyState) -> bool:
+    """INACTIVE — not wired into dispatch. The email reminder channel is disabled
+    because the app dropped the gmail.send scope to stay least-intrusive. Kept
+    (with backend/notifications/email.py) for future re-enablement via a system
+    mailer. See the project backlog.
+    """
     from backend.notifications.email import send_payment_reminder
     try:
         profile = state["user_profile"] or {}

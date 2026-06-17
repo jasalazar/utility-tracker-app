@@ -5,7 +5,7 @@
  */
 
 const ALL_CHANNELS = [
-  { id: "email",        label: "Email" },
+  // { id: "email",     label: "Email" },   // disabled — re-enable with a system mailer (see backlog)
   { id: "macos",        label: "macOS" },
   { id: "browser_push", label: "Browser push" },
   { id: "ui_popup",     label: "UI popup" },

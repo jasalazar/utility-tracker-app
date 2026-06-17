@@ -21,6 +21,11 @@ from backend.redis_client import redis_client
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["rules"])
 
+# "email" is intentionally kept here but is NOT active: the email reminder
+# channel is unwired from the notify subgraph and the UI no longer offers it
+# (the app dropped the gmail.send scope). Retained so existing rules that still
+# reference "email" continue to validate, and for future re-enablement via a
+# system mailer. See the project backlog.
 VALID_CHANNELS = {"email", "browser_push", "ui_popup", "macos"}
 
 

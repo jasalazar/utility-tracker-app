@@ -1,0 +1,12 @@
+# Extra dependencies for the MCP servers (not imported by the core FastAPI app,
+# so kept out of pyproject.toml). Installed in the Docker image via the
+# Dockerfile (`pip install -r requirements.txt`) and locally with:
+#   pip install -r requirements.txt
+
+# Local stdio server (backend/mcp_server_local.py). The [cli] extra provides
+# the `mcp dev` command used to launch the MCP Inspector for local testing.
+mcp[cli]>=1.2.0
+
+# HTTP + WorkOS AuthKit server (backend/mcp_server_http.py). Standalone FastMCP
+# 2.0 — provides AuthKitProvider for turnkey OAuth token validation.
+fastmcp>=2.0

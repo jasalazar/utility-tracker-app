@@ -24,30 +24,45 @@ router = APIRouter()
 
 
 async def _run_pipeline(uid: str, history_id: str) -> None:
-    """Run the email pipeline in the background."""
-    from backend.agents.email_pipeline import email_pipeline
+    """Process EVERY new Gmail message since the last checkpoint.
+
+    Lists all messages added (not just the newest), claims each for idempotency,
+    and runs the email pipeline once per message id.
+    """
+    from backend.agents.email_pipeline import email_pipeline, list_new_message_ids
+
+    rc = redis_client()
     try:
-        await email_pipeline.ainvoke({
-            "uid": uid,
-            "history_id": history_id,
-            "message_id": None,
-            "email_subject": None,
-            "email_body": None,
-            "email_sender": None,
-            "is_utility": False,
-            "classification_confidence": 0.0,
-            "classification_reason": "",
-            "service_name": None,
-            "amount": None,
-            "currency": "USD",
-            "due_date": None,
-            "account_number": None,
-            "confirmation_number": None,
-            "payment_id": None,
-            "errors": [],
-        })
+        msg_ids = await list_new_message_ids(uid, history_id)
     except Exception as exc:
-        logger.error("Email pipeline failed uid=%s history_id=%s: %s", uid, history_id, exc)
+        logger.error("listing new messages failed uid=%s history_id=%s: %s", uid, history_id, exc)
+        return
+
+    for msg_id in msg_ids:
+        # Idempotency: skip redeliveries / overlapping history / concurrent tasks.
+        if not await rc.claim_email(uid, msg_id):
+            continue
+        try:
+            await email_pipeline.ainvoke({
+                "uid": uid,
+                "message_id": msg_id,
+                "email_subject": None,
+                "email_body": None,
+                "email_sender": None,
+                "is_utility": False,
+                "classification_confidence": 0.0,
+                "classification_reason": "",
+                "service_name": None,
+                "amount": None,
+                "currency": "USD",
+                "due_date": None,
+                "account_number": None,
+                "confirmation_number": None,
+                "payment_id": None,
+                "errors": [],
+            })
+        except Exception as exc:
+            logger.error("Email pipeline failed uid=%s msg=%s: %s", uid, msg_id, exc)
 
 
 @router.post("/webhook/gmail")

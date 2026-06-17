@@ -154,6 +154,13 @@ pids/
 *.seed
 *.pid.lock
 
+
+# =============================================================================
+# BACKEND (FastAPI / MCP Servers)
+# =============================================================================
+backend/mcp_server_local.py
+
+
 # Package manager locks (keep only one; remove the ones you don't use)
 # Uncomment the lock file your project does NOT use:
 # package-lock.json

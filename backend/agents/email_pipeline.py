@@ -2,8 +2,11 @@
 LangGraph: Email Processing Pipeline
 =====================================
 
+The webhook coordinator lists ALL new message ids (list_new_message_ids),
+claims each for idempotency, and runs this graph once per message id.
+
 Graph nodes (in execution order):
-  fetch_email        — pull full email body from Gmail API
+  fetch_message      — fetch ONE Gmail message (by id) from the API
   classify           — Claude decides: utility email or not?
   extract            — Claude extracts service / amount / due-date
   persist            — write payment record to Redis
@@ -14,7 +17,7 @@ Conditional edge after classify:
   is_utility=False → END  (logged to LangSmith, nothing stored)
 """
 
-import uuid
+import hashlib
 import logging
 from datetime import datetime, timezone
 from typing import Optional, TypedDict
@@ -51,7 +54,13 @@ class ClassificationResult(BaseModel):
 
 
 class PaymentExtraction(BaseModel):
-    service_name: str = Field(description="Name of the utility or service provider (e.g. 'Eversource', 'Comcast')")
+    service_name: str = Field(description=(
+        "Canonical provider/brand name ONLY, so the same provider yields an "
+        "identical string across a bill and its later reminders. Use the official "
+        "brand in Title Case with no plan tier, location, legal suffix, or "
+        "punctuation (e.g. 'Cogeco', 'Netflix', 'Enbridge' — not "
+        "'Cogeco Communications Inc.' or 'Netflix Premium')."
+    ))
     amount: float = Field(description="Payment amount as a decimal number")
     currency: str = Field(default="CAD", description="ISO 4217 currency code")
     due_date: str = Field(description="Payment due date in YYYY-MM-DD format")
@@ -65,9 +74,10 @@ class PaymentExtraction(BaseModel):
 
 class EmailPipelineState(TypedDict):
     uid: str
-    history_id: str
-    # Set by fetch_email
-    message_id: Optional[str]
+    # Input: the specific Gmail message id to process. The webhook coordinator
+    # lists ALL new messages and runs the graph once per id.
+    message_id: str
+    # Set by fetch_message
     email_subject: Optional[str]
     email_body: Optional[str]
     email_sender: Optional[str]
@@ -92,77 +102,79 @@ class EmailPipelineState(TypedDict):
 # Node implementations
 # ---------------------------------------------------------------------------
 
-async def fetch_email(state: EmailPipelineState) -> dict:
+async def list_new_message_ids(uid: str, notif_history_id: str) -> list[str]:
+    """List ALL Gmail message ids added since the stored checkpoint, then
+    advance the checkpoint once.
+
+    Lifted out of the graph so the webhook can process EVERY new message — the
+    old fetch_email handled only messages[-1], silently dropping the rest of a
+    burst. Returns ids oldest→newest, de-duplicated.
     """
-    Use the Gmail history API to find messages added since the last known
-    history ID, then fetch the most recent one.
+    creds = await get_valid_credentials(uid)
+    if not creds:
+        logger.error("list_new_message_ids: no credentials for uid=%s", uid)
+        return []
+
+    service = build("gmail", "v1", credentials=creds)
+    rc = redis_client()
+    watch = await rc.get_gmail_watch(uid)
+    start = watch.get("history_id", notif_history_id) if watch else notif_history_id
+
+    try:
+        history = service.users().history().list(
+            userId="me",
+            startHistoryId=start,
+            historyTypes=["messageAdded"],
+        ).execute()
+    except Exception as exc:
+        logger.error("list_new_message_ids history list failed uid=%s: %s", uid, exc)
+        return []
+
+    ids: list[str] = []
+    seen: set[str] = set()
+    for record in history.get("history", []):
+        for added in record.get("messagesAdded", []):
+            mid = added["message"]["id"]
+            if mid not in seen:
+                seen.add(mid)
+                ids.append(mid)
+
+    # Advance the checkpoint ONCE, to the API's reported latest historyId.
+    await rc.save_gmail_watch(uid, {
+        "history_id": history.get("historyId", notif_history_id),
+        "watch_expiry": watch.get("watch_expiry", "0") if watch else "0",
+    })
+    return ids
+
+
+async def fetch_message(state: EmailPipelineState) -> dict:
+    """Fetch ONE specific Gmail message (state['message_id']) and pull out
+    subject, sender, and body.
+
+    Listing and the idempotency claim happen in the webhook coordinator before
+    the graph runs, so this node just retrieves the message it was handed.
     """
     uid = state["uid"]
-    history_id = state["history_id"]
+    msg_id = state["message_id"]
 
     creds = await get_valid_credentials(uid)
     if not creds:
         return {"errors": state["errors"] + ["No credentials for uid"]}
 
     service = build("gmail", "v1", credentials=creds)
-    rc = redis_client()
-    watch = await rc.get_gmail_watch(uid)
-    last_history_id = watch.get("history_id", history_id) if watch else history_id
-
-    # List messages added since last checkpoint.
-    try:
-        history = service.users().history().list(
-            userId="me",
-            startHistoryId=last_history_id,
-            historyTypes=["messageAdded"],
-        ).execute()
-    except Exception as exc:
-        logger.error("fetch_email history list failed: %s", exc)
-        return {"errors": state["errors"] + [str(exc)]}
-
-    messages = []
-    for record in history.get("history", []):
-        for added in record.get("messagesAdded", []):
-            messages.append(added["message"]["id"])
-
-    # Update stored history ID.
-    await rc.save_gmail_watch(uid, {
-        "history_id": history_id,
-        "watch_expiry": watch.get("watch_expiry", "0") if watch else "0",
-    })
-
-    if not messages:
-        return {"errors": state["errors"] + ["No new messages in history"]}
-
-    # Process the most recently added message.
-    msg_id = messages[-1]
-
-    # Guard: skip if we already processed this Gmail message.
-    if await rc.payment_exists_for_email(uid, msg_id):
-        return {"errors": state["errors"] + [f"Message {msg_id} already processed"]}
-
-    # Fetch the full message.
     try:
         msg = service.users().messages().get(
             userId="me", id=msg_id, format="full"
         ).execute()
     except Exception as exc:
-        logger.error("fetch_email get message failed: %s", exc)
+        logger.error("fetch_message get failed uid=%s msg=%s: %s", uid, msg_id, exc)
         return {"errors": state["errors"] + [str(exc)]}
 
-    # Extract subject.
     headers = {h["name"]: h["value"] for h in msg["payload"].get("headers", [])}
-    subject = headers.get("Subject", "(no subject)")
-    sender = headers.get("From", "")
-
-    # Extract body — prefer plain text.
-    body = _extract_body(msg["payload"])
-
     return {
-        "message_id": msg_id,
-        "email_subject": subject,
-        "email_body": body,
-        "email_sender": sender,
+        "email_subject": headers.get("Subject", "(no subject)"),
+        "email_sender": headers.get("From", ""),
+        "email_body": _extract_body(msg["payload"]),
     }
 
 
@@ -245,7 +257,10 @@ async def extract(state: EmailPipelineState) -> dict:
             "subscription emails. Extract the payment details accurately. "
             "Use YYYY-MM-DD format for dates. If the due date is not explicit but "
             "a billing period end date is present, use that. "
-            "Amount should be a decimal number without currency symbols."
+            "Amount should be a decimal number without currency symbols. "
+            "For service_name, return the provider's canonical brand name only "
+            "(Title Case, no plan tier, location, suffix, or punctuation) so the "
+            "same provider yields an identical name across a bill and its reminders."
         )),
         HumanMessage(content=(
             f"Subject: {state.get('email_subject', '')}\n\n"
@@ -270,13 +285,26 @@ async def extract(state: EmailPipelineState) -> dict:
     }
 
 
+def _bill_id(service_name: str, due_date: str) -> str:
+    """Stable id for a logical bill = canonical service name + due date.
+
+    A reminder about the SAME service and due date maps to the SAME record, so
+    `persist` upserts instead of creating a duplicate. service_name is
+    normalized defensively here (the extractor also returns a canonical name).
+    account_number is deliberately NOT part of identity — it is too
+    inconsistently present across an original email and its later reminders.
+    """
+    key = f"{(service_name or '').strip().lower()}|{(due_date or '').strip()}"
+    return hashlib.sha1(key.encode()).hexdigest()[:16]
+
+
 async def persist(state: EmailPipelineState) -> dict:
-    """Write the extracted payment record to Redis."""
+    """Write (or upsert) the extracted payment record to Redis."""
     if not state.get("due_date") or not state.get("amount"):
         return {"errors": state["errors"] + ["Missing required fields after extraction"]}
 
-    payment_id = str(uuid.uuid4())
     uid = state["uid"]
+    now = str(int(datetime.now(timezone.utc).timestamp()))
 
     # Compute UTC epoch for the due date (used as ZSET score).
     try:
@@ -285,22 +313,37 @@ async def persist(state: EmailPipelineState) -> dict:
     except ValueError:
         due_epoch = 0.0
 
+    # Deterministic id => a reminder for an existing bill upserts that record
+    # instead of creating a duplicate (bill-level idempotency).
+    payment_id = _bill_id(state.get("service_name", "Unknown"), state.get("due_date", ""))
+
     rc = redis_client()
-    await rc.save_payment(uid, payment_id, {
+    existing = await rc.get_payment(uid, payment_id)
+
+    record = {
         "payment_id": payment_id,
         "service_name": state.get("service_name", "Unknown"),
-        "amount": str(state.get("amount", 0)),
+        "amount": str(state.get("amount", 0)),          # latest wins (e.g. late fees)
         "currency": state.get("currency", "CAD"),
         "due_date": state.get("due_date", ""),
         "due_epoch": str(due_epoch),
         "account_number": state.get("account_number") or "",
         "confirmation_number": state.get("confirmation_number") or "",
-        "status": "pending",
         "email_subject": state.get("email_subject", ""),
         "email_id": state.get("message_id", ""),
         "email_sender": state.get("email_sender", ""),
-        "created_at": str(int(datetime.now(timezone.utc).timestamp())),
-    })
+    }
+    if existing:
+        # Preserve the user's status (don't un-pay a paid bill) and the original
+        # created_at; stamp when we last refreshed it.
+        record["status"] = existing.get("status", "pending")
+        record["created_at"] = existing.get("created_at", now)
+        record["updated_at"] = now
+    else:
+        record["status"] = "pending"
+        record["created_at"] = now
+
+    await rc.save_payment(uid, payment_id, record)
 
     logger.info("Payment persisted: uid=%s payment_id=%s service=%s due=%s",
                 uid, payment_id, state.get("service_name"), state.get("due_date"))
@@ -376,14 +419,14 @@ def _route_after_classify(state: EmailPipelineState) -> str:
 def build_email_pipeline():
     graph = StateGraph(EmailPipelineState)
 
-    graph.add_node("fetch_email", fetch_email)
+    graph.add_node("fetch_message", fetch_message)
     graph.add_node("classify", classify)
     graph.add_node("extract", extract)
     graph.add_node("persist", persist)
     graph.add_node("plan_notifications", plan_notifications)
 
-    graph.set_entry_point("fetch_email")
-    graph.add_edge("fetch_email", "classify")
+    graph.set_entry_point("fetch_message")
+    graph.add_edge("fetch_message", "classify")
     graph.add_conditional_edges("classify", _route_after_classify, {"extract": "extract", END: END})
     graph.add_edge("extract", "persist")
     graph.add_edge("persist", "plan_notifications")

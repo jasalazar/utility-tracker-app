@@ -1,6 +1,11 @@
 """
 Email notification channel — sends payment reminders via the Gmail API
 using the authenticated user's own account as the sender.
+
+INACTIVE: not currently used. The app dropped the gmail.send scope to stay
+least-intrusive, so this channel is unwired from the notify subgraph. Kept for
+a future re-implementation via a system mailer (e.g. no-reply@utilitytracker.org).
+See the project backlog.
 """
 
 import base64

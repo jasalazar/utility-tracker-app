@@ -8,7 +8,7 @@ const EMPTY_RULE = () => ({
   days_before: 7,
   hour: 9,
   minute: 0,
-  channels: ["email"],
+  channels: ["browser_push"],
 });
 
 export default function Settings({ user, onLogout }) {

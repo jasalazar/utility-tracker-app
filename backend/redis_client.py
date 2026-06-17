@@ -112,14 +112,18 @@ class RedisClient:
     async def update_payment_status(self, uid: str, payment_id: str, status: str) -> None:
         await self.r.hset(f"utility:{uid}:{payment_id}", "status", status)
 
-    async def payment_exists_for_email(self, uid: str, email_id: str) -> bool:
-        """Guard against processing the same Gmail message twice."""
-        keys = await self.r.keys(f"utility:{uid}:*")
-        for key in keys:
-            val = await self.r.hget(key, "email_id")
-            if val == email_id:
-                return True
-        return False
+    async def claim_email(self, uid: str, msg_id: str, ttl: int = 3 * 24 * 3600) -> bool:
+        """Atomically claim a Gmail message id for processing (idempotency guard).
+
+        Returns True if this caller is the FIRST to claim it (so it should
+        process the message), or False if it was already claimed — by a prior
+        run, a Pub/Sub redelivery, or a concurrent background task. Backed by a
+        single SET NX EX, so the check-and-set is atomic and race-free. The TTL
+        bounds memory: claims auto-expire after `ttl` seconds (default 3 days),
+        which is far longer than any redelivery/backlog window.
+        """
+        was_set = await self.r.set(f"processed:msg:{uid}:{msg_id}", "1", nx=True, ex=ttl)
+        return bool(was_set)
 
     # ---- Notification rules -------------------------------------------------
 
