@@ -2,4 +2,6 @@ Previously, I built an LLM application with RAG pipelines using Multi-representa
 
 Now, I built an agentic application with LangGraph (for deterministic state), FastAPI, traceability and monitoring using LangSmith including prompt injection evals using LLM-as-a-judge, and authentication using OAuth2.
 
+**UPDATE:** The app is now available through MCP via a decoupled MCP server.
+
 [Click here to view the setup](SETUP.md)
