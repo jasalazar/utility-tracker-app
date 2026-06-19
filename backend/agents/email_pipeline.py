@@ -216,8 +216,14 @@ async def classify(state: EmailPipelineState) -> dict:
 
     messages = [
         SystemMessage(content=(
-            "You are an expert at identifying household utility and subscription "
-            "payment notification emails. Classify the following email."
+            "You identify household utility and subscription PAYMENT notification "
+            "emails. Set is_utility=true ONLY if THIS email is itself a bill, invoice, "
+            "receipt, or payment-due/confirmation notice from a service provider, "
+            "addressed to the recipient. Set false for newsletters, marketing, and "
+            "social/forum digests (e.g. Reddit), articles, or emails that merely "
+            "mention or link to bills without being one. Judge the email's own "
+            "purpose — ignore quoted text, linked content, and incidental phrases "
+            "like 'received a ChatGPT bill'."
         )),
         HumanMessage(content=(
             f"Subject: {state.get('email_subject', '')}\n\n"
