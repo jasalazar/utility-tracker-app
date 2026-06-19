@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------
     anthropic_api_key: str
     # Model used for email classification and extraction.
-    anthropic_model: str = "claude-opus-4-5"
+    anthropic_model: str = "claude-sonnet-4-6"
 
     # ------------------------------------------------------------------
     # LangSmith observability
